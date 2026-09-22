@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complex Hello World - Distributed Pipeline</title>
+    <style>
+        :root {
+            --bg-color: #080a0f;
+            --terminal-bg: #0d1117;
+            --border-color: #30363d;
+            --accent-green: #2ea043;
+            --accent-cyan: #58a6ff;
+            --accent-yellow: #f0883e;
+            --text-color: #c9d1d9;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 900px;
+            background: var(--terminal-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #161b22;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .dots {
+            display: flex;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot-red { background: #ff5f56; }
+        .dot-yellow { background: #ffbd2e; }
+        .dot-green { background: #27c93f; }
+
+        .title {
+            margin-left: 20px;
+            font-size: 0.85rem;
+            color: #8b949e;
+        }
+
+        .screen {
+            padding: 20px;
+            height: 420px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .log-line {
+            margin-bottom: 6px;
+            opacity: 0;
+            transform: translateY(5px);
+            animation: fadeIn 0.3s forwards;
+        }
+
+        .csharp { color: var(--accent-cyan); }
+        .python { color: var(--accent-green); }
+        .system { color: var(--accent-yellow); }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .banner-box {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px dashed var(--accent-green);
+            background: rgba(46, 160, 67, 0.05);
+            text-align: center;
+            display: none;
+        }
+
+        .banner-text {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent-green);
+            text-shadow: 0 0 10px rgba(46, 160, 67, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .controls {
+            padding: 15px;
+            background: #161b22;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        button {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2ea043;
+        }
+
+        button:disabled {
+            background: #21262d;
+            color: #484f58;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <div class="dots">
+                <div class="dot dot-red"></div>
+                <div class="dot dot-yellow"></div>
+                <div class="dot dot-green"></div>
+            </div>
+            <div class="title">docker-compose://orchestrator/pipeline-runner</div>
+        </div>
+
+        <div class="screen" id="terminalScreen">
+            <div class="log-line system">[SYSTEM] A inicializar clusters de contentores Docker...</div>
+        </div>
+
+        <div class="banner-box" id="bannerBox">
+            <div class="banner-text" id="bannerText"></div>
+        </div>
+
+        <div class="controls">
+            <button id="runBtn" onclick="startPipeline()">Executar Pipeline</button>
+        </div>
+    </div>
+
+    <script>
+        const logs = [
+            { text: "[DOCKER] A levantar serviço 'producer-csharp' (SDK 8.0)...", type: "system", delay: 400 },
+            { text: "[C# PRODUCER] A inicializar pipeline de transmissão de saudação...", type: "csharp", delay: 600 },
+            { text: "[C# PRODUCER] A calcular SHA-256 e a gerar vetor de bytes criptografados...", type: "csharp", delay: 800 },
+            { text: "[C# PRODUCER] Payload gerado com sucesso (21 bytes). A despachar por socket...", type: "csharp", delay: 500 },
+            { text: "[DOCKER] A levantar serviço 'worker-python' (Python 3.11)...", type: "system", delay: 700 },
+            { text: "[PYTHON WORKER] A escutar na porta interna 5000... Fluxo capturado.", type: "python", delay: 600 },
+            { text: "[PYTHON WORKER] BYTE_00: 0x48 -> 'H'", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_01: 0x65 -> 'e'", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_02: 0x6C -> 'l'", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_03: 0x6C -> 'l'", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_04: 0x6F -> 'o'", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_05: 0x2C -> ','", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_06: 0x20 -> ' '", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_07: 0x57 -> 'W'", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_08: 0x6F -> 'o'", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_09: 0x72 -> 'r'", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_10: 0x6C -> 'l'", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_11: 0x64 -> 'd'", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] BYTE_12: 0x21 -> '!'", type: "python", delay: 100 },
+            { text: "[PYTHON WORKER] Descodificação e descompressão concluídas com sucesso.", type: "python", delay: 500 }
+        ];
+
+        async function startPipeline() {
+            const btn = document.getElementById('runBtn');
+            const screen = document.getElementById('terminalScreen');
+            const bannerBox = document.getElementById('bannerBox');
+            const bannerText = document.getElementById('bannerText');
+
+            btn.disabled = true;
+            bannerBox.style.display = 'none';
+            screen.innerHTML = '<div class="log-line system">[SYSTEM] A inicializar clusters de contentores Docker...</div>';
+
+            for (const log of logs) {
+                await new Promise(resolve => setTimeout(resolve, log.delay));
+                const div = document.createElement('div');
+                div.className = `log-line ${log.type}`;
+                div.textContent = log.text;
+                screen.appendChild(div);
+                screen.scrollTop = screen.scrollHeight;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 400));
+            bannerBox.style.display = 'block';
+            
+            // Efeito de escrita no banner
+            const finalString = "HELLO, WORLD!";
+            bannerText.textContent = "";
+            for (let i = 0; i < finalString.length; i++) {
+                bannerText.textContent += finalString[i];
+                await new Promise(resolve => setTimeout(resolve, 60));
+            }
+
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>
