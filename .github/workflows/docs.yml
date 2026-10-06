@@ -12,7 +12,7 @@ jobs:
       - name: Build documentation
         run: |
           pip install pdoc
-          pdoc -o docs
+          pdoc -o docs src/
       - name: Upload documentation
         uses: actions/upload-pages-artifact@v3
         with:
